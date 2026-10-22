@@ -246,10 +246,13 @@ def _share_lifespan(server: Any) -> None:
                     manager["context"] = None
                     manager["state"] = None
                     if context is not None:
+                        teardown_error = (
+                            None if isinstance(error, asyncio.CancelledError) else error
+                        )
                         await context.__aexit__(
-                            type(error) if error is not None else None,
-                            error,
-                            error.__traceback__ if error is not None else None,
+                            type(teardown_error) if teardown_error is not None else None,
+                            teardown_error,
+                            teardown_error.__traceback__ if teardown_error is not None else None,
                         )
 
     server.lifespan = shared

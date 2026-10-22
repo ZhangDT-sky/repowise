@@ -172,3 +172,20 @@ async def test_failed_startup_can_be_retried(tmp_path: Path, monkeypatch: pytest
 
     assert workspace.registries[1].closed
     assert len(workspace.cancelled_tasks) == 4
+
+
+@pytest.mark.asyncio
+async def test_cancelled_last_session_still_cleans_up_lifespan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = _install_workspace(tmp_path, monkeypatch)
+    session = _server.mcp._mcp_server.lifespan(_server.mcp._mcp_server)
+    await session.__aenter__()
+    registry = workspace.registries[0]
+
+    await session.__aexit__(asyncio.CancelledError, asyncio.CancelledError(), None)
+
+    assert registry.closed
+    assert mcp_mod._registry is None
+    assert mcp_mod._workspace_root is None
+    assert len(workspace.cancelled_tasks) == 2
