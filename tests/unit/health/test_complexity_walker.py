@@ -772,6 +772,16 @@ GTEST_API_ std::string& Ref(int a, int b) { static std::string s; return s; }
     assert functions["Ref"].param_count == 2
 
 
+def test_cpp_qualified_identifier_spine_preserves_name_and_parameters(tmp_path):
+    source = b"GTEST_API_ std::string* Fmt(int a, int b) { return nullptr; }\n"
+    results = walk_file_complexity(str(tmp_path / "qualified.cpp"), "cpp", source)
+    if not results:
+        pytest.skip("tree-sitter language pack missing for cpp")
+
+    functions = {result.name: result for result in results}
+    assert functions["Fmt"].param_count == 2
+
+
 @pytest.mark.parametrize(
     ("prefix", "scope"),
     [
