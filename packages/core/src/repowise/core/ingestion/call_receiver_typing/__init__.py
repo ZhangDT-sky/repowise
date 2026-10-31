@@ -291,29 +291,61 @@ class ReceiverTypingMixin(
         index = self._get_jvm_index()
         package = index.package_for_file(path) if index is not None else None
         if symbol.kotlin_companion_member:
-            caller = self._symbols_by_id.get(caller_id)
-            caller_holder = (
-                self._kotlin_holder_id(file_path, caller)
-                if caller is not None and file_path == path
-                else None
+            return self._kotlin_companion_extension_scope(
+                file_path, site, name, caller_id, package
             )
-            if (
-                caller is not None
-                and caller.language == "kotlin"
-                and caller_holder is not None
-                and caller_holder == self._kotlin_holder_id(path, symbol)
-                and symbol.visibility != "private"
-            ):
-                return sym_id, "same_file"
-            if symbol.visibility == "private" or package is None:
-                return None
-            imported_name = f"{package}.{symbol.parent_name}.Companion.{name}"
-            parsed = self._parsed_files.get(file_path)
-            seen = any(
-                imp.module_path == imported_name and name in imp.imported_names
-                for imp in (parsed.imports if parsed else ())
-            )
-            return (sym_id, "import") if seen else None
+        return self._kotlin_top_level_extension_scope(
+            file_path, site, name, package
+        )
+
+    def _kotlin_companion_extension_scope(
+        self,
+        file_path: str,
+        site: tuple[str, str],
+        name: str,
+        caller_id: str,
+        package: str | None,
+    ) -> tuple[str, str] | None:
+        """Resolve a Kotlin companion extension from its owner or import."""
+        path, sym_id = site
+        symbol = self._symbols_by_id[sym_id]
+        if self._kotlin_companion_visible_in_owner(file_path, path, symbol, caller_id):
+            return sym_id, "same_file"
+        if symbol.visibility == "private" or package is None:
+            return None
+        imported_name = f"{package}.{symbol.parent_name}.Companion.{name}"
+        parsed = self._parsed_files.get(file_path)
+        imported = any(
+            imp.module_path == imported_name and name in imp.imported_names
+            for imp in (parsed.imports if parsed else ())
+        )
+        return (sym_id, "import") if imported else None
+
+    def _kotlin_companion_visible_in_owner(
+        self, file_path: str, path: str, symbol: Symbol, caller_id: str
+    ) -> bool:
+        """Whether a companion extension is called inside its declaring holder."""
+        caller = self._symbols_by_id.get(caller_id)
+        if caller is None or caller.language != "kotlin" or file_path != path:
+            return False
+        caller_holder = self._kotlin_holder_id(file_path, caller)
+        symbol_holder = self._kotlin_holder_id(path, symbol)
+        return (
+            caller_holder is not None
+            and caller_holder == symbol_holder
+            and symbol.visibility != "private"
+        )
+
+    def _kotlin_top_level_extension_scope(
+        self,
+        file_path: str,
+        site: tuple[str, str],
+        name: str,
+        package: str | None,
+    ) -> tuple[str, str] | None:
+        """Resolve a Kotlin top-level extension from package or explicit import."""
+        path, sym_id = site
+        symbol = self._symbols_by_id[sym_id]
         if symbol.visibility == "private":
             return None
         if package is None:
@@ -321,7 +353,8 @@ class ReceiverTypingMixin(
         else:
             parsed = self._parsed_files.get(file_path)
             wanted = {f"{package}.{name}", f"{package}.*"}
-            seen = index.package_for_file(file_path) == package or any(
+            index = self._get_jvm_index()
+            seen = (index is not None and index.package_for_file(file_path) == package) or any(
                 imp.module_path in wanted for imp in (parsed.imports if parsed else ())
             )
         return (sym_id, "import") if seen else None
