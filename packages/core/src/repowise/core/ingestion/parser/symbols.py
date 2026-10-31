@@ -107,6 +107,8 @@ def _kotlin_companion_member(def_node: Node, language: str) -> bool:
     while ancestor is not None:
         if ancestor.type == "companion_object":
             return True
+        if ancestor.type in {"class_declaration", "object_declaration"}:
+            return False
         ancestor = ancestor.parent
     return False
 

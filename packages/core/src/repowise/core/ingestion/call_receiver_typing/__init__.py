@@ -292,11 +292,16 @@ class ReceiverTypingMixin(
         package = index.package_for_file(path) if index is not None else None
         if symbol.kotlin_companion_member:
             caller = self._symbols_by_id.get(caller_id)
+            caller_holder = (
+                self._kotlin_holder_id(file_path, caller)
+                if caller is not None and file_path == path
+                else None
+            )
             if (
                 caller is not None
                 and caller.language == "kotlin"
-                and caller.parent_name == symbol.parent_name
-                and file_path == path
+                and caller_holder is not None
+                and caller_holder == self._kotlin_holder_id(path, symbol)
                 and symbol.visibility != "private"
             ):
                 return sym_id, "same_file"
@@ -320,6 +325,28 @@ class ReceiverTypingMixin(
                 imp.module_path in wanted for imp in (parsed.imports if parsed else ())
             )
         return (sym_id, "import") if seen else None
+
+    def _kotlin_holder_id(self, file_path: str, symbol: Symbol) -> str | None:
+        """The closest enclosing Kotlin type that owns a member declaration."""
+        if not symbol.parent_name:
+            return None
+        spans = self._spans_for(file_path)
+        owners = [
+            candidate
+            for candidate in self._parsed_files[file_path].symbols
+            if candidate.language == "kotlin"
+            and candidate.kind in _TYPE_KINDS
+            and candidate.name == symbol.parent_name
+            and candidate.id in spans
+            and spans[candidate.id][0] <= symbol.start_line
+            and symbol.end_line <= spans[candidate.id][1]
+        ]
+        if not owners:
+            return None
+        return min(
+            owners,
+            key=lambda candidate: spans[candidate.id][1] - spans[candidate.id][0],
+        ).id
 
     def _writes_one_type(self, file_path: str, other_path: str, name: str) -> bool:
         """Do the two files mean one type by *name*?

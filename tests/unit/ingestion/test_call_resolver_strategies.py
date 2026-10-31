@@ -317,6 +317,56 @@ class TestUnpinnedStrategies:
 
         assert not [edge for edge in _edges(parsed, tmp_path) if edge[1].endswith("::shout")]
 
+    def test_kotlin_nested_member_extension_inside_companion_is_not_indexed(
+        self, tmp_path: Path
+    ) -> None:
+        parsed = _parse_all(
+            tmp_path,
+            {
+                "H.kt": (
+                    "kotlin",
+                    "package app\n\n"
+                    "class H {\n"
+                    "    companion object {\n"
+                    "        class Nested {\n"
+                    "            fun String.shout() = 1\n"
+                    "            fun f() = \"a\".shout()\n"
+                    "        }\n"
+                    "    }\n"
+                    "}\n",
+                )
+            },
+        )
+
+        assert not [edge for edge in _edges(parsed, tmp_path) if edge[1].endswith("::shout")]
+
+    def test_kotlin_same_named_nested_holders_do_not_share_companion_extensions(
+        self, tmp_path: Path
+    ) -> None:
+        parsed = _parse_all(
+            tmp_path,
+            {
+                "H.kt": (
+                    "kotlin",
+                    "package app\n\n"
+                    "class A {\n"
+                    "    class H {\n"
+                    "        companion object {\n"
+                    "            fun String.shout() = 1\n"
+                    "        }\n"
+                    "    }\n"
+                    "}\n\n"
+                    "class B {\n"
+                    "    class H {\n"
+                    "        fun f() = \"a\".shout()\n"
+                    "    }\n"
+                    "}\n",
+                )
+            },
+        )
+
+        assert not [edge for edge in _edges(parsed, tmp_path) if edge[1].endswith("::shout")]
+
     def test_a_target_name_declared_nowhere_resolves_to_nothing(self, tmp_path: Path) -> None:
         """The population the cascade spends most of its budget on."""
         parsed = _parse_all(
