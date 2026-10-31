@@ -33,6 +33,7 @@
         "type_parameter_count": null,
         "extension_receiver": null,
         "written_receiver": null,
+        "kotlin_companion_member": false,
         "modifiers": [],
         "alias_of": null
       }
@@ -88,6 +89,7 @@
         "type_parameter_count": null,
         "extension_receiver": null,
         "written_receiver": null,
+        "kotlin_companion_member": false,
         "modifiers": [],
         "alias_of": null
       },
@@ -111,6 +113,7 @@
         "type_parameter_count": null,
         "extension_receiver": null,
         "written_receiver": null,
+        "kotlin_companion_member": false,
         "modifiers": [],
         "alias_of": null
       }
